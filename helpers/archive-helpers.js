@@ -14,7 +14,8 @@ var _ = require('underscore');
 exports.paths = {
   siteAssets: path.join(__dirname, '../web/public'),
   archivedSites: path.join(__dirname, '../web/archives/sites'),
-  list: path.join(__dirname, '../web/archives/sites.txt')
+  list: path.join(__dirname, '../web/archives/sites.txt'),
+  archivesHome: path.join(__dirname, '../web')
 };
 
 // Used for stubbing paths for tests, do not modify
@@ -27,62 +28,86 @@ exports.initialize = function(pathsObj) {
 // The following function names are provided to you to suggest how you might
 // modularize your code. Keep it clean!
 
-exports.readListOfUrls = function() {
-	console.log(exports.paths.list);
+exports.readListOfUrls = function(callback) {
+
 	fs.readFile(exports.paths.list, 'utf-8', function(err, data) {
 		if (err) { console.log('error', err); }
-	  	console.log(data);
-		return data.split('\n');
+		callback(data.split('\n'));
 	})
 };
 
-exports.isUrlInList = function(url) {
-	var siteArray = exports.readListOfUrls();
-	var found = false;
-	siteArray.forEach(function(site) {
-		if (site === url) {
-			found = true;
-		}
-	})
-	return found;
-};
+exports.isUrlInList = function(url, callback) {
 
-exports.addUrlToList = function(url) {
-	if (!exports.isUrlInList(url)) {
-		fs.appendFile(exports.paths.list, url, function(err) {
-			if (err) {
-				throw err;
-			}
-		});
-	}
-};
-
-exports.isUrlArchived = function(url) {
-	if (fs.existsSync(exports.paths.archivedSites + '/' + url)) {
-		return true;
-	} else {
-		return false;
-	}
-};
-
-exports.downloadUrls = function() {
-	// var listUrls = exports.readListOfUrls();
-	fs.readFile(exports.paths.list, 'utf-8', function(err, data) {
-		if (err) { console.log("error " + err) }
-		console.log(data)
-		var listUrls = data.split('\n');
-
-		listUrls.forEach(function(url) {
-			if (!exports.isUrlArchived(url)) {
-				fs.mkdirSync(exports.paths.archivedSites + '/' + url)
-				fs.writeFileSync(exports.paths.archivedSites + '/' + url + '/index.html')
-				request.get({"url": url}, exports.paths.archivedSites + '/' + url + '/index.html', function(err, res) {
-					if (err) { console.log(err); }
-					console.log(res.code, res.header, res.file)
-				})
+	exports.readListOfUrls(function(list) {
+		list.forEach(function(site) {
+			if (site !== url) {
+				callback(url)
 			}
 		})
 	})
+};
+
+exports.addUrlToList = function(url) {
+
+	exports.isUrlInList(url, function(url){
+		fs.appendFile(exports.paths.list, url, function(err) {
+			if (err) {console.log("error " + err)}
+
+		})
+	})
+};
+
+exports.isUrlArchived = function(url, doesntExistCallback, doesExistCallback) {
+
+
+	fs.exists(exports.paths.archivedSites + '/' + url, function(exists) {
+		if (!exists) {
+			doesntExistCallback(url);
+		} else {
+			doesExistCallback(url);
+		}
+	})
+};
+
+exports.downloadFile = function(url) {
+
+	fs.mkdir(exports.paths.archivedSites + '/' + url, function() {
+		fs.writeFile(exports.paths.archivedSites + '/' + url + '/index.html', function() {
+			request.get({'url': url}, exports.paths.archivedSites + '/' + url + '/index.html', function(err, response) {
+				if (err) { console.log("error " + err)}
+			})
+		})
+	})
+}
+
+exports.downloadUrls = function() {
+
+	exports.readListOfUrls(function(list) {
+		list.forEach(function(url) {
+			exports.isUrlArchived(url, function(url){
+				exports.downloadFile(url)
+			}, function() {})
+		})
+		fs.writeFile(exports.paths.list, '', function(err) {
+			if (err) {console.log(err)}
+		})
+	})
+	// fs.readFile(exports.paths.list, 'utf-8', function(err, data) {
+	// 	if (err) { console.log("error " + err) }
+	// 	console.log(data)
+	// 	var listUrls = data.split('\n');
+
+		// listUrls.forEach(function(url) {
+		// 	if (!exports.isUrlArchived(url)) {
+		// 		fs.mkdirSync(exports.paths.archivedSites + '/' + url)
+		// 		fs.writeFileSync(exports.paths.archivedSites + '/' + url + '/index.html')
+		// 		request.get({"url": url}, exports.paths.archivedSites + '/' + url + '/index.html', function(err, res) {
+		// 			if (err) { console.log(err); }
+		// 			console.log(res.code, res.header, res.file)
+		// 		})
+		// 	}
+		// })
+	// })
 	
 	
 };

@@ -1,0 +1,5 @@
+function () {
+			request.get({'url': url}, exports.paths.archivedSites + '/' + url + '/index.html', function(err, response) {
+				if (err) { console.log("error " + err)}
+			})
+		}
